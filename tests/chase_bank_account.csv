@@ -1,0 +1,6 @@
+Details,Posting Date,Description,Amount,Type,Balance,Check or Slip #
+DEBIT,02/22/2023,"Hello World1",-600.00,ACH_DEBIT,11806.00,,
+DEBIT,02/21/2023,"Hello World2",-61.19,ACH_DEBIT,12406.00,,
+DEBIT,02/15/2023,"Hello World3",-438.71,ACH_DEBIT,12667.19,,
+DEBIT,02/15/2023,"Hello World4",-600.00,ACH_DEBIT,13105.90,,
+DEBIT,02/02/2023,"Hello World5",-1096.18,ACH_DEBIT,20602.22,,

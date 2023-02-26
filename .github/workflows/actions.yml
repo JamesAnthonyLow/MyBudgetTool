@@ -1,0 +1,14 @@
+on: push
+name: Actions
+jobs:
+  run-actions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v2
+      - name: Lint (mypy,black,isort)
+        run: ${GITHUB_WORKSPACE}/scripts/lint.sh
+        shell: bash
+      - name: Run Tests
+        run: ${GITHUB_WORKSPACE}/scripts/test.sh
+        shell: bash
