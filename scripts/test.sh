@@ -1,3 +1,3 @@
 #!/bin/bash
 source "$(dirname "$0")"/functions.sh
-run_command pytest "$@"
+run_it_command pytest "$@"

@@ -5,10 +5,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Source
-        uses: actions/checkout@v2
-      - name: Lint (mypy,black,isort)
-        run: ${GITHUB_WORKSPACE}/scripts/lint.sh
-        shell: bash
-      - name: Run Tests
-        run: ${GITHUB_WORKSPACE}/scripts/test.sh
-        shell: bash
+        uses: actions/checkout@v3
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11' 
+          cache: pip
+      - name: Install testing/linting dependencies
+        run: pip install pip-tools pytest mypy black isort
+      - name: Check requirements.txt
+        run: pip-tools compile requirements.in
+      - name: Install local dependencies
+        run: pip install -r requirements.txt
+      - name: Run tests
+        run: pytest -vvv
+      - name: Run MyPy
+        run: mypy .
+      - name: Run Black
+        run: black .
+      - name: Run Isort
+        run: isort .

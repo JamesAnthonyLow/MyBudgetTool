@@ -43,7 +43,23 @@ class ChaseDate(datetime.date):
         yield _parse_date
 
 
-class ChaseBankAccountActivity(pydantic.BaseModel):
+class CsvMixin:
+    @classmethod
+    def from_csv(cls, filename: str) -> typing.List[typing.Any]:
+        with open(filename) as csvfile:
+            reader = csv.DictReader(csvfile)
+
+            def _from_row(row: typing.Dict[str, typing.Any]) -> typing.Any:
+                try:
+                    return cls(**cls.__row_to_kwargs__(row))
+                except pydantic.ValidationError as e:
+                    e.add_note(f"{row}")
+                    raise e
+
+            return [_from_row(row) for row in reader]
+
+
+class ChaseBankAccountActivity(pydantic.BaseModel, CsvMixin):
     details: ChaseBankAccountActivityDetails
     posting_date: ChaseDate
     description: str
@@ -53,33 +69,23 @@ class ChaseBankAccountActivity(pydantic.BaseModel):
     check_or_slip_no: typing.Optional[str]
 
     @classmethod
-    def from_csv(cls, filename: str) -> typing.List["ChaseBankAccountActivity"]:
-        with open(filename) as csvfile:
-            reader = csv.DictReader(csvfile)
-
-            def _from_row(
-                row: typing.Dict[str, typing.Any]
-            ) -> "ChaseBankAccountActivity":
-                try:
-                    return cls(
-                        details=row["Details"],
-                        posting_date=row["Posting Date"],
-                        description=row["Description"],
-                        amount=row["Amount"],
-                        type=row["Type"],
-                        balance=row["Balance"],
-                        check_or_slip_no=row["Check or Slip #"]
-                        if row["Check or Slip #"] != ""
-                        else None,
-                    )
-                except pydantic.ValidationError as e:
-                    e.add_note(f"{row}")
-                    raise e
-
-            return [_from_row(row) for row in reader]
+    def __row_to_kwargs__(
+        cls, row: typing.Dict[str, typing.Any]
+    ) -> typing.Dict[str, typing.Any]:
+        return {
+            "details": row["Details"],
+            "posting_date": row["Posting Date"],
+            "description": row["Description"],
+            "amount": row["Amount"],
+            "type": row["Type"],
+            "balance": row["Balance"],
+            "check_or_slip_no": row["Check or Slip #"]
+            if row["Check or Slip #"] != ""
+            else None,
+        }
 
 
-class ChaseCreditCardActivity(pydantic.BaseModel):
+class ChaseCreditCardActivity(pydantic.BaseModel, CsvMixin):
     transaction_date: ChaseDate
     post_date: ChaseDate
     description: str
@@ -88,11 +94,16 @@ class ChaseCreditCardActivity(pydantic.BaseModel):
     amount: float
     memo: typing.Optional[str]
 
-    @pydantic.validator("transaction_date", pre=True)
-    def parse_transaction_date(
-        cls, value: typing.Union[str, datetime.date]
-    ) -> datetime.date:
-        if isinstance(value, str):
-            return datetime.datetime.strptime(value, "%m/%d/%Y").date()
-        else:
-            return value
+    @classmethod
+    def __row_to_kwargs__(
+        cls, row: typing.Dict[str, typing.Any]
+    ) -> typing.Dict[str, typing.Any]:
+        return {
+            "transaction_date": row["Transaction Date"],
+            "post_date": row["Post Date"],
+            "description": row["Description"],
+            "category": row["Category"],
+            "type": row["Type"],
+            "amount": row["Amount"],
+            "memo": row["Memo"] if row["Memo"] != "" else None,
+        }
