@@ -1,9 +1,7 @@
 import datetime
-from models import (
-    ChaseBankAccountActivity,
-    ChaseBankAccountActivityDetails,
-    ChaseBankAccountActivityType,
-)
+
+from models import (ChaseBankAccountActivity, ChaseBankAccountActivityDetails,
+                    ChaseBankAccountActivityType)
 
 
 def test_parse_csv():

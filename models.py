@@ -1,3 +1,4 @@
+import abc
 import csv
 import datetime
 import enum
@@ -43,7 +44,14 @@ class ChaseDate(datetime.date):
         yield _parse_date
 
 
-class CsvMixin:
+class CsvMixin(abc.ABC):
+    @classmethod
+    @abc.abstractmethod
+    def __row_to_kwargs__(
+        cls, row: typing.Dict[str, typing.Any]
+    ) -> typing.Dict[str, typing.Any]:
+        return {}
+
     @classmethod
     def from_csv(cls, filename: str) -> typing.List[typing.Any]:
         with open(filename) as csvfile:
