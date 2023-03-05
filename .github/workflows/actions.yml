@@ -18,7 +18,8 @@ jobs:
       - name: Install local dependencies
         run: pip install -r requirements.txt
       - name: Run tests
-        run: pytest -vvv
+        run: PYTHONPATH=. pytest -vvv
+        shell: bash
       - name: Run MyPy
         run: mypy .
       - name: Run Black
