@@ -32,7 +32,7 @@ class ChaseBankAccountActivityType(enum.Enum):
     REFUND_TRANSACTION = "REFUND_TRANSACTION"
 
 
-class ChaseDate(datetime.date):
+class FormattedDate(datetime.date):
     @classmethod
     def __get_validators__(cls):
         def _parse_date(value) -> datetime.date:
@@ -69,7 +69,7 @@ class CsvMixin(abc.ABC):
 
 class ChaseBankAccountActivity(pydantic.BaseModel, CsvMixin):
     details: ChaseBankAccountActivityDetails
-    posting_date: ChaseDate
+    posting_date: FormattedDate
     description: str
     amount: float
     type: ChaseBankAccountActivityType
@@ -94,8 +94,8 @@ class ChaseBankAccountActivity(pydantic.BaseModel, CsvMixin):
 
 
 class ChaseCreditCardActivity(pydantic.BaseModel, CsvMixin):
-    transaction_date: ChaseDate
-    post_date: ChaseDate
+    transaction_date: FormattedDate
+    post_date: FormattedDate
     description: str
     category: str
     type: str
@@ -114,4 +114,20 @@ class ChaseCreditCardActivity(pydantic.BaseModel, CsvMixin):
             "type": row["Type"],
             "amount": row["Amount"],
             "memo": row["Memo"] if row["Memo"] != "" else None,
+        }
+
+
+class AmexCreditCardActivity(pydantic.BaseModel, CsvMixin):
+    date: FormattedDate
+    description: str
+    amount: float
+
+    @classmethod
+    def __row_to_kwargs__(
+        cls, row: typing.Dict[str, typing.Any]
+    ) -> typing.Dict[str, typing.Any]:
+        return {
+            "date": row["Date"],
+            "description": row["Description"],
+            "amount": row["Amount"],
         }
