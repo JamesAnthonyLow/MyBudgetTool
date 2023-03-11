@@ -1,7 +1,10 @@
 import datetime
 
-from models import (ChaseBankAccountActivity, ChaseBankAccountActivityDetails,
-                    ChaseBankAccountActivityType)
+from models import (
+    ChaseBankAccountActivity,
+    ChaseBankAccountActivityDetails,
+    ChaseBankAccountActivityType,
+)
 
 
 def test_parse_csv():
@@ -9,7 +12,7 @@ def test_parse_csv():
     assert rows == [
         ChaseBankAccountActivity(
             details=ChaseBankAccountActivityDetails.DEBIT,
-            posting_date=datetime.date(2023, 2, 22),
+            date=datetime.date(2023, 2, 22),
             description="Hello World1",
             amount=-600.0,
             type=ChaseBankAccountActivityType.ACH_DEBIT,
@@ -18,7 +21,7 @@ def test_parse_csv():
         ),
         ChaseBankAccountActivity(
             details=ChaseBankAccountActivityDetails.DEBIT,
-            posting_date=datetime.date(2023, 2, 21),
+            date=datetime.date(2023, 2, 21),
             description="Hello World2",
             amount=-61.19,
             type=ChaseBankAccountActivityType.ACH_DEBIT,
@@ -27,7 +30,7 @@ def test_parse_csv():
         ),
         ChaseBankAccountActivity(
             details=ChaseBankAccountActivityDetails.DEBIT,
-            posting_date=datetime.date(2023, 2, 15),
+            date=datetime.date(2023, 2, 15),
             description="Hello World3",
             amount=-438.71,
             type=ChaseBankAccountActivityType.ACH_DEBIT,
@@ -36,7 +39,7 @@ def test_parse_csv():
         ),
         ChaseBankAccountActivity(
             details=ChaseBankAccountActivityDetails.DEBIT,
-            posting_date=datetime.date(2023, 2, 15),
+            date=datetime.date(2023, 2, 15),
             description="Hello World4",
             amount=-600.0,
             type=ChaseBankAccountActivityType.ACH_DEBIT,
@@ -45,7 +48,7 @@ def test_parse_csv():
         ),
         ChaseBankAccountActivity(
             details=ChaseBankAccountActivityDetails.DEBIT,
-            posting_date=datetime.date(2023, 2, 2),
+            date=datetime.date(2023, 2, 2),
             description="Hello World5",
             amount=-1096.18,
             type=ChaseBankAccountActivityType.ACH_DEBIT,

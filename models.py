@@ -2,6 +2,7 @@ import abc
 import csv
 import datetime
 import enum
+import os
 import typing
 
 import pydantic
@@ -53,7 +54,7 @@ class CsvMixin(abc.ABC):
         return {}
 
     @classmethod
-    def from_csv(cls, filename: str) -> typing.List[typing.Any]:
+    def from_csv_exn(cls, filename: str) -> typing.List[typing.Any]:
         with open(filename) as csvfile:
             reader = csv.DictReader(csvfile)
 
@@ -66,10 +67,24 @@ class CsvMixin(abc.ABC):
 
             return [_from_row(row) for row in reader]
 
+    @classmethod
+    def from_csv(cls, filename: str) -> typing.Optional[typing.List[typing.Any]]:
+        try:
+            return cls.from_csv_exn(filename)
+        except pydantic.ValidationError:
+            return None
 
-class ChaseBankAccountActivity(pydantic.BaseModel, CsvMixin):
+
+class Transaction(pydantic.BaseModel, CsvMixin):
+    date: FormattedDate
+    description: str
+    amount: float
+    category: typing.Optional[str] = None
+
+
+class ChaseBankAccountActivity(Transaction):
     details: ChaseBankAccountActivityDetails
-    posting_date: FormattedDate
+    date: FormattedDate
     description: str
     amount: float
     type: ChaseBankAccountActivityType
@@ -82,7 +97,7 @@ class ChaseBankAccountActivity(pydantic.BaseModel, CsvMixin):
     ) -> typing.Dict[str, typing.Any]:
         return {
             "details": row["Details"],
-            "posting_date": row["Posting Date"],
+            "date": row["Posting Date"],
             "description": row["Description"],
             "amount": row["Amount"],
             "type": row["Type"],
@@ -93,11 +108,10 @@ class ChaseBankAccountActivity(pydantic.BaseModel, CsvMixin):
         }
 
 
-class ChaseCreditCardActivity(pydantic.BaseModel, CsvMixin):
-    transaction_date: FormattedDate
+class ChaseCreditCardActivity(Transaction):
+    date: FormattedDate
     post_date: FormattedDate
     description: str
-    category: str
     type: str
     amount: float
     memo: typing.Optional[str]
@@ -107,7 +121,7 @@ class ChaseCreditCardActivity(pydantic.BaseModel, CsvMixin):
         cls, row: typing.Dict[str, typing.Any]
     ) -> typing.Dict[str, typing.Any]:
         return {
-            "transaction_date": row["Transaction Date"],
+            "date": row["Transaction Date"],
             "post_date": row["Post Date"],
             "description": row["Description"],
             "category": row["Category"],
@@ -117,7 +131,7 @@ class ChaseCreditCardActivity(pydantic.BaseModel, CsvMixin):
         }
 
 
-class AmexCreditCardActivity(pydantic.BaseModel, CsvMixin):
+class AmexCreditCardActivity(Transaction):
     date: FormattedDate
     description: str
     amount: float
@@ -133,8 +147,39 @@ class AmexCreditCardActivity(pydantic.BaseModel, CsvMixin):
         }
 
 
-class Transaction(pydantic.BaseModel):
-    date: datetime.datetime
-    description: str
-    amount: float
-    category: typing.Optional[str] = None
+class NoEntriesInCSV(Exception):
+    ...
+
+
+class Transactions(pydantic.BaseModel):
+    __root__: typing.List[Transaction]
+
+    @classmethod
+    def from_csvs(cls, path: str) -> "Transactions":
+        if not os.path.isdir(path):
+            raise ValueError(f"{path} is not a directory")
+
+        csv_files = [
+            filename
+            for filename in os.listdir(path)
+            if filename.endswith(".csv") or filename.endswith(".CSV")
+        ]
+
+        transactions: typing.List[Transaction] = []
+        for csv in csv_files:
+            parsed_transactions = next(
+                (
+                    transaction.from_csv(csv)
+                    for transaction in [
+                        ChaseBankAccountActivity,
+                        ChaseCreditCardActivity,
+                        AmexCreditCardActivity,
+                    ]
+                ),
+                None,
+            )
+            if parsed_transactions is None:
+                raise NoEntriesInCSV(f"{csv}")
+            transactions.extend(parsed_transactions)
+
+        return cls.parse_obj(sorted(transactions, key=lambda r: r.date))
