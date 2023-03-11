@@ -131,3 +131,10 @@ class AmexCreditCardActivity(pydantic.BaseModel, CsvMixin):
             "description": row["Description"],
             "amount": row["Amount"],
         }
+
+
+class Transaction(pydantic.BaseModel):
+    date: datetime.datetime
+    description: str
+    amount: float
+    category: typing.Optional[str] = None
