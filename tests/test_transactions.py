@@ -1,14 +1,12 @@
-import pytest
 import csv
 import datetime
-from models import (
-    Transactions,
-    AmexCreditCardActivity,
-    ChaseBankAccountActivity,
-    ChaseBankAccountActivityType,
-    ChaseBankAccountActivityDetails,
-    ChaseCreditCardActivity,
-)
+
+import pytest
+
+from models import (AmexCreditCardActivity, ChaseBankAccountActivity,
+                    ChaseBankAccountActivityDetails,
+                    ChaseBankAccountActivityType, ChaseCreditCardActivity,
+                    Transactions)
 
 
 @pytest.mark.parametrize(

@@ -1,8 +1,8 @@
-import io
-import csv
 import abc
+import csv
 import datetime
 import enum
+import io
 import os
 import typing
 
@@ -48,29 +48,23 @@ class FormattedDate(datetime.date):
 
 class CsvMixin(abc.ABC):
     @classmethod
-    @property
     @abc.abstractmethod
     def headers(cls) -> typing.Dict[str, str]:
         return {}
 
     @classmethod
-    def from_csv(
-        cls, csvfile: io.TextIOWrapper
-    ) -> typing.Optional[typing.List[typing.Any]]:
+    def from_csv(cls, csvfile: io.TextIOWrapper) -> typing.List[typing.Any]:
         reader = csv.DictReader(csvfile)
 
         def _from_row(row: typing.Dict[str, typing.Any]) -> typing.Any:
             try:
-                kwargs = {alias: row[column] for column, alias in cls.headers.items()}
+                kwargs = {alias: row[column] for column, alias in cls.headers().items()}
                 return cls(**kwargs)
             except Exception as e:
                 e.add_note(f"{row}")
                 raise e
 
-        try:
-            return [_from_row(row) for row in reader]
-        except (KeyError, pydantic.ValidationError):
-            return None
+        return [_from_row(row) for row in reader]
 
 
 class Transaction(pydantic.BaseModel, CsvMixin):
@@ -90,7 +84,6 @@ class ChaseBankAccountActivity(Transaction):
     check_or_slip_no: typing.Optional[str]
 
     @classmethod
-    @property
     def headers(cls) -> typing.Dict[str, str]:
         return {
             "Details": "details",
@@ -112,7 +105,6 @@ class ChaseCreditCardActivity(Transaction):
     memo: typing.Optional[str]
 
     @classmethod
-    @property
     def headers(cls) -> typing.Dict[str, str]:
         return {
             "Transaction Date": "date",
@@ -131,7 +123,6 @@ class AmexCreditCardActivity(Transaction):
     amount: float
 
     @classmethod
-    @property
     def headers(cls) -> typing.Dict[str, str]:
         return {
             "Date": "date",
@@ -147,7 +138,7 @@ class Transactions(pydantic.BaseModel):
     def match_transaction_class(
         cls,
         file: io.TextIOWrapper,
-    ) -> typing.Optional[type[Transaction]]:
+    ) -> typing.Optional[type[typing.Any]]:
         reader = csv.DictReader(file)
         columns = set((key for key in next(reader).keys() if key is not None))
         file.seek(0)
@@ -157,8 +148,8 @@ class Transactions(pydantic.BaseModel):
             AmexCreditCardActivity,
         ]
 
-        def _is_match(m: type[Transaction]) -> bool:
-            headers = set(m.headers.keys())
+        def _is_match(m: type[typing.Any]) -> bool:
+            headers = set(m.headers().keys())
             return headers == columns
 
         return next((m for m in all if _is_match(m)), None)
