@@ -1,5 +1,6 @@
-import abc
+import io
 import csv
+import abc
 import datetime
 import enum
 import os
@@ -47,31 +48,28 @@ class FormattedDate(datetime.date):
 
 class CsvMixin(abc.ABC):
     @classmethod
+    @property
     @abc.abstractmethod
-    def __row_to_kwargs__(
-        cls, row: typing.Dict[str, typing.Any]
-    ) -> typing.Dict[str, typing.Any]:
+    def headers(cls) -> typing.Dict[str, str]:
         return {}
 
     @classmethod
-    def from_csv_exn(cls, filename: str) -> typing.List[typing.Any]:
-        with open(filename) as csvfile:
-            reader = csv.DictReader(csvfile)
+    def from_csv(
+        cls, csvfile: io.TextIOWrapper
+    ) -> typing.Optional[typing.List[typing.Any]]:
+        reader = csv.DictReader(csvfile)
 
-            def _from_row(row: typing.Dict[str, typing.Any]) -> typing.Any:
-                try:
-                    return cls(**cls.__row_to_kwargs__(row))
-                except pydantic.ValidationError as e:
-                    e.add_note(f"{row}")
-                    raise e
+        def _from_row(row: typing.Dict[str, typing.Any]) -> typing.Any:
+            try:
+                kwargs = {alias: row[column] for column, alias in cls.headers.items()}
+                return cls(**kwargs)
+            except Exception as e:
+                e.add_note(f"{row}")
+                raise e
 
-            return [_from_row(row) for row in reader]
-
-    @classmethod
-    def from_csv(cls, filename: str) -> typing.Optional[typing.List[typing.Any]]:
         try:
-            return cls.from_csv_exn(filename)
-        except pydantic.ValidationError:
+            return [_from_row(row) for row in reader]
+        except (KeyError, pydantic.ValidationError):
             return None
 
 
@@ -92,19 +90,16 @@ class ChaseBankAccountActivity(Transaction):
     check_or_slip_no: typing.Optional[str]
 
     @classmethod
-    def __row_to_kwargs__(
-        cls, row: typing.Dict[str, typing.Any]
-    ) -> typing.Dict[str, typing.Any]:
+    @property
+    def headers(cls) -> typing.Dict[str, str]:
         return {
-            "details": row["Details"],
-            "date": row["Posting Date"],
-            "description": row["Description"],
-            "amount": row["Amount"],
-            "type": row["Type"],
-            "balance": row["Balance"],
-            "check_or_slip_no": row["Check or Slip #"]
-            if row["Check or Slip #"] != ""
-            else None,
+            "Details": "details",
+            "Posting Date": "date",
+            "Description": "description",
+            "Amount": "amount",
+            "Type": "type",
+            "Balance": "balance",
+            "Check or Slip #": "check_or_slip_no",
         }
 
 
@@ -117,17 +112,16 @@ class ChaseCreditCardActivity(Transaction):
     memo: typing.Optional[str]
 
     @classmethod
-    def __row_to_kwargs__(
-        cls, row: typing.Dict[str, typing.Any]
-    ) -> typing.Dict[str, typing.Any]:
+    @property
+    def headers(cls) -> typing.Dict[str, str]:
         return {
-            "date": row["Transaction Date"],
-            "post_date": row["Post Date"],
-            "description": row["Description"],
-            "category": row["Category"],
-            "type": row["Type"],
-            "amount": row["Amount"],
-            "memo": row["Memo"] if row["Memo"] != "" else None,
+            "Transaction Date": "date",
+            "Post Date": "post_date",
+            "Description": "description",
+            "Category": "category",
+            "Type": "type",
+            "Amount": "amount",
+            "Memo": "memo",
         }
 
 
@@ -137,22 +131,37 @@ class AmexCreditCardActivity(Transaction):
     amount: float
 
     @classmethod
-    def __row_to_kwargs__(
-        cls, row: typing.Dict[str, typing.Any]
-    ) -> typing.Dict[str, typing.Any]:
+    @property
+    def headers(cls) -> typing.Dict[str, str]:
         return {
-            "date": row["Date"],
-            "description": row["Description"],
-            "amount": row["Amount"],
+            "Date": "date",
+            "Description": "description",
+            "Amount": "amount",
         }
 
 
-class NoEntriesInCSV(Exception):
-    ...
-
-
 class Transactions(pydantic.BaseModel):
-    __root__: typing.List[Transaction]
+    transactions: typing.List[Transaction]
+
+    @classmethod
+    def match_transaction_class(
+        cls,
+        file: io.TextIOWrapper,
+    ) -> typing.Optional[type[Transaction]]:
+        reader = csv.DictReader(file)
+        columns = set((key for key in next(reader).keys() if key is not None))
+        file.seek(0)
+        all = [
+            ChaseBankAccountActivity,
+            ChaseCreditCardActivity,
+            AmexCreditCardActivity,
+        ]
+
+        def _is_match(m: type[Transaction]) -> bool:
+            headers = set(m.headers.keys())
+            return headers == columns
+
+        return next((m for m in all if _is_match(m)), None)
 
     @classmethod
     def from_csvs(cls, path: str) -> "Transactions":
@@ -160,26 +169,17 @@ class Transactions(pydantic.BaseModel):
             raise ValueError(f"{path} is not a directory")
 
         csv_files = [
-            filename
+            f"{path}/{filename}"
             for filename in os.listdir(path)
             if filename.endswith(".csv") or filename.endswith(".CSV")
         ]
 
         transactions: typing.List[Transaction] = []
-        for csv in csv_files:
-            parsed_transactions = next(
-                (
-                    transaction.from_csv(csv)
-                    for transaction in [
-                        ChaseBankAccountActivity,
-                        ChaseCreditCardActivity,
-                        AmexCreditCardActivity,
-                    ]
-                ),
-                None,
-            )
-            if parsed_transactions is None:
-                raise NoEntriesInCSV(f"{csv}")
-            transactions.extend(parsed_transactions)
+        for file in csv_files:
+            with open(file) as csvfile:
+                transaction_class = cls.match_transaction_class(csvfile)
+                if transaction_class is None:
+                    raise ValueError(f"CSV file headers are invalid: {file}")
+                transactions.extend(transaction_class.from_csv(csvfile))
 
-        return cls.parse_obj(sorted(transactions, key=lambda r: r.date))
+        return cls(transactions=sorted(transactions, key=lambda r: r.date))
